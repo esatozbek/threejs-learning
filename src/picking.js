@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import PickHelper from "./helpers/PickHelper";
 import GPUPickHelper from "./helpers/GPUPickHelper";
+import rand from "./utils/rand";
 
 function main() {
   const canvas = document.getElementById("canvas");
@@ -49,14 +50,6 @@ function main() {
     const texture = loader.load(
       "https://threejs.org/manual/examples/resources/images/frame.png"
     );
-
-    function rand(min, max) {
-      if (max === undefined) {
-        max = min;
-        min = 0;
-      }
-      return min + (max - min) * Math.random();
-    }
 
     function randomColor() {
       return `hsl(${rand(360) | 0}, ${rand(50, 100) | 0}%, 50%)`;

@@ -11,6 +11,7 @@ class SkinInstance extends Component {
     gameObject.transform.add(this.animRoot);
     this.actions = {};
   }
+
   setAnimation(animName) {
     const clip = this.model.animations[animName];
     // turn off all current actions
@@ -24,6 +25,7 @@ class SkinInstance extends Component {
     action.play();
     this.actions[animName] = action;
   }
+
   update() {
     this.mixer.update(globals.deltaTime);
   }

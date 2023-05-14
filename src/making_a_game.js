@@ -1,16 +1,23 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GUI } from "lil-gui";
 import GameObjectManager from "./game/GameObjectManager";
 import Player from "./game/PlayerComponent";
 import InputManager from "./game/InputManager";
 import CameraInfo from "./game/CameraInfoComponent";
+import Animal from './game/AnimalComponent';
+import rand from "./utils/rand";
 
 // global
 window.globals = {
   time: 0,
   deltaTime: 0,
   moveSpeed: 16,
+  kForward: new THREE.Vector3(0, 0, 1),
+  debug: true,
+  scene: null,
+  gameObjectManager: null,
 };
 
 // html elements
@@ -32,6 +39,9 @@ const uiHtml = `
 `;
 uiDiv.innerHTML = uiHtml;
 document.body.appendChild(uiDiv);
+const labelsDiv = document.createElement("div");
+labelsDiv.id = "labels";
+document.body.appendChild(labelsDiv);
 
 // style
 const css = `
@@ -112,6 +122,33 @@ const css = `
     height: 80px;
     display: block;
   }
+  #labels {
+    position: absolute !important;  /* let us position ourself inside the container */
+    left: 0;             /* make our position the top left of the container */
+    top: 0;
+    color: white;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  #labels>div {
+    position: absolute !important;  /* let us position them inside the container */
+    left: 0;             /* make their default position the top left of the container */
+    top: 0;
+    font-size: large;
+    font-family: monospace;
+    user-select: none;   /* don't let the text get selected */
+    text-shadow:         /* create a black outline */
+      -1px -1px 0 #000,
+       0   -1px 0 #000,
+       1px -1px 0 #000,
+       1px  0   0 #000,
+       1px  1px 0 #000,
+       0    1px 0 #000,
+      -1px  1px 0 #000,
+      -1px  0   0 #000;
+  }
 `;
 const head = document.head || document.getElementsByTagName("head")[0];
 const style = document.createElement("style");
@@ -122,15 +159,16 @@ head.appendChild(style);
 
 function main() {
   const canvas = document.querySelector("#canvas");
+  globals.canvas = canvas;
   const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
   renderer.outputEncoding = THREE.sRGBEncoding;
 
   const fov = 45;
-  const aspect = 2; // the canvas default
+  const aspect = 2;  // the canvas default
   const near = 0.1;
-  const far = 100;
+  const far = 1000;
   const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(0, 20, 40);
+  camera.position.set(0, 40, 80);
   globals.camera = camera;
 
   const controls = new OrbitControls(camera, canvas);
@@ -138,6 +176,7 @@ function main() {
   controls.update();
 
   const scene = new THREE.Scene();
+  globals.scene = scene;
   scene.background = new THREE.Color("white");
 
   function addLight(...pos) {
@@ -150,6 +189,14 @@ function main() {
   }
   addLight(5, 5, 2);
   addLight(-5, 5, 5);
+
+  const labelContainerElem = document.querySelector('#labels');
+  function showHideDebugInfo() {
+    labelContainerElem.style.display = globals.debug ? '' : 'none';
+  }
+  const gui = new GUI();
+  gui.add(globals, 'debug').onChange(showHideDebugInfo);
+  showHideDebugInfo();
 
   const manager = new THREE.LoadingManager();
   manager.onLoad = init;
@@ -195,16 +242,27 @@ function main() {
   }
 
   function prepModelsAndAnimations() {
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+
     Object.values(models).forEach((model) => {
+      box.setFromObject(model.gltf.scene);
+      box.getSize(size);
+      model.size = size.length();
       const animsByName = {};
       model.gltf.animations.forEach((clip) => {
         animsByName[clip.name] = clip;
+        if (clip.name === 'Walk') {
+          clip.duration /= 2;
+        }
       });
       model.animations = animsByName;
     });
+    console.log(models)
   }
 
   const gameObjectManager = new GameObjectManager();
+  globals.gameObjectManager = gameObjectManager;
   const inputManager = new InputManager();
   globals.inputManager = inputManager;
 
@@ -222,7 +280,8 @@ function main() {
     }
     {
       const gameObject = gameObjectManager.createGameObject(scene, "player");
-      gameObject.addComponent(Player);
+      globals.player = gameObject.addComponent(Player);
+      globals.congaLine = [gameObject];
     }
     const animalModelNames = [
       "pig",
@@ -233,11 +292,27 @@ function main() {
       "zebra",
       "horse",
     ];
-    animalModelNames.forEach((name, ndx) => {
+    const base = new THREE.Object3D();
+    const offset = new THREE.Object3D();
+    base.add(offset);
+
+    // position animals in a spiral.
+    const numAnimals = 28;
+    const arc = 10;
+    const b = 10 / (2 * Math.PI);
+    let r = 10;
+    let phi = r / b;
+    for (let i = 0; i < numAnimals; ++i) {
+      const name = animalModelNames[rand(animalModelNames.length) | 0];
       const gameObject = gameObjectManager.createGameObject(scene, name);
       gameObject.addComponent(Animal, models[name]);
-      gameObject.transform.position.x = (ndx + 1) * 5;
-    });
+      base.rotation.y = phi;
+      offset.position.x = r;
+      offset.updateWorldMatrix(true, false);
+      offset.getWorldPosition(gameObject.transform.position);
+      phi += arc / r;
+      r = b * phi;
+    }
   }
 
   function resizeRendererToDisplaySize(renderer) {
@@ -274,6 +349,7 @@ function main() {
   }
 
   requestAnimationFrame(render);
+  console.log(gameObjectManager)
 }
 
 main();

@@ -1,4 +1,8 @@
+import * as THREE from 'three'
+import Component from './Component';
 import SkinInstance from "./SkinInstanceComponent";
+import FiniteStateMachine from '../utils/FiniteStateMachine';
+import StateDisplayHelper from './StateDisplayHelperComponent';
 
 // Returns true of obj1 and obj2 are close
 function isClose(obj1, obj1Radius, obj2, obj2Radius) {
@@ -34,11 +38,11 @@ const aimTowardAndGetDistance = (function () {
     return delta.length();
   };
 })();
-å;
 
 class Animal extends Component {
   constructor(gameObject, model) {
     super(gameObject);
+    this.helper = gameObject.addComponent(StateDisplayHelper, model.size);
     const hitRadius = model.size / 2;
     const skinInstance = gameObject.addComponent(SkinInstance, model);
     skinInstance.mixer.timeScale = globals.moveSpeed / 4;
@@ -119,7 +123,7 @@ class Animal extends Component {
             );
             const velocity = distance;
             transform.translateOnAxis(
-              kForward,
+              globals.kForward,
               Math.min(velocity, maxVelocity)
             );
             if (distance <= maxVelocity) {
@@ -148,6 +152,8 @@ class Animal extends Component {
 
   update() {
     this.fsm.update();
+    const dir = THREE.MathUtils.radToDeg(this.gameObject.transform.rotation.y);
+    this.helper.setState(`${this.fsm.state}:${dir.toFixed(0)}`);
   }
 }
 
